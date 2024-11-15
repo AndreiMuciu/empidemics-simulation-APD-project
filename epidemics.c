@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <omp.h>
 
 #define INFECTED_DURATION 20
 #define IMMUNE_DURATION 1
@@ -259,12 +260,12 @@ void *function_logic(void *t){
     return NULL;
 }
 
-void Simulation_Parallel(int ThreadsNumber){
+void Simulation_Parallel_v2(int ThreadsNumber){
     pthread_t threads[ThreadsNumber];
 
+    pthread_mutex_init(&lock, NULL);
+    pthread_barrier_init(&barrier, NULL, ThreadsNumber);
     for(int i = 0; i < TST; i++){
-        pthread_mutex_init(&lock, NULL);
-        pthread_barrier_init(&barrier, NULL, ThreadsNumber);
         for (int i = 0; i < ThreadsNumber; i++)
         {
             int *id = malloc(sizeof(int));
@@ -275,10 +276,103 @@ void Simulation_Parallel(int ThreadsNumber){
         {
             pthread_join(threads[i], NULL);
         }
-        pthread_mutex_destroy(&lock);
-        pthread_barrier_destroy(&barrier);
     }
+    pthread_mutex_destroy(&lock);
+    pthread_barrier_destroy(&barrier);
 }
+
+void Simulation_Parallel_v1(int ThreadsNumber) {
+    int all_infections = 0;
+
+    omp_set_num_threads(ThreadsNumber);
+
+    #pragma omp parallel
+    {
+        for (int i = 0; i < TST; i++) {
+            // Movement logic
+            #pragma omp for schedule(static, 60)
+            for (int j = 0; j < NP; j++) {
+                if (p[j].direction == 0) {
+                    if (p[j].y + p[j].amplitude > MYC) {
+                        p[j].direction = 1;
+                        p[j].y -= p[j].amplitude;
+                    } else {
+                        p[j].y += p[j].amplitude;
+                    }
+                } else if (p[j].direction == 1) {
+                    if (p[j].y - p[j].amplitude < 0) {
+                        p[j].direction = 0;
+                        p[j].y += p[j].amplitude;
+                    } else {
+                        p[j].y -= p[j].amplitude;
+                    }
+                } else if (p[j].direction == 2) {
+                    if (p[j].x + p[j].amplitude > MXC) {
+                        p[j].direction = 3;
+                        p[j].x -= p[j].amplitude;
+                    } else {
+                        p[j].x += p[j].amplitude;
+                    }
+                } else if (p[j].direction == 3) {
+                    if (p[j].x - p[j].amplitude < 0) {
+                        p[j].direction = 2;
+                        p[j].x += p[j].amplitude;
+                    } else {
+                        p[j].x -= p[j].amplitude;
+                    }
+                } else {
+                    printf("Why are you here?\n");
+                    exit(-12);
+                }
+            }
+
+            // Check if 2 Persons are in the same location
+            #pragma omp for schedule(dynamic, 10) reduction(+:all_infections)
+            for (int j = 0; j < NP; j++) {
+                for (int k = j + 1; k < NP; k++) {
+                    if ((p[j].x == p[k].x) && (p[j].y == p[k].y)) {
+                        if (p[j].status == 0 && p[k].status == 1) {
+                            p[k].future_status = 0;
+                            p[k].count_infected++;
+                            all_infections++;
+                        } else if (p[j].status == 1 && p[k].status == 0) {
+                            p[j].future_status = 0;
+                            p[j].count_infected++;
+                            all_infections++;
+                        }
+                    }
+                }
+            }
+
+            // Update infection and immunity states
+            #pragma omp for schedule(static, 60)
+            for (int j = 0; j < NP; j++) {
+                if ((p[j].status == 0) && (p[j].time_infected < INFECTED_DURATION)) {
+                    p[j].time_infected++;
+                } else if ((p[j].status == 0) && (p[j].time_infected == INFECTED_DURATION)) {
+                    p[j].time_infected = 0;
+                    p[j].future_status = 2;
+                } else if ((p[j].status == 2) && (p[j].time_immuned < IMMUNE_DURATION)) {
+                    p[j].time_immuned++;
+                } else if ((p[j].status == 2) && (p[j].time_immuned == IMMUNE_DURATION)) {
+                    p[j].time_immuned = 0;
+                    p[j].future_status = 1;
+                }
+            }
+
+            // Apply status updates
+            #pragma omp for schedule(static, 60)
+            for (int j = 0; j < NP; j++) {
+                if (p[j].future_status != p[j].status) {
+                    p[j].status = p[j].future_status;
+                }
+            }
+        }
+    }
+
+    printf("all infections: %d\n", all_infections);
+}
+
 
 char *createOutputFileName(const char *InputFileName, char *endEtxt) {
     char *outputFileName = (char*)malloc(50 * sizeof(char));
@@ -355,8 +449,8 @@ int main(int argc, char *argv[]){
 
     write_in_outputFile(outputFileNameSeq, NUMBER_OF_PERSONS, persons);
 
-    char *outputFileParallel = createOutputFileName(InputFileName, "_parallel_out.txt");
-    printf("parallel output file name: %s\n", outputFileParallel);
+    char *outputFileParallel = createOutputFileName(InputFileName, "_parallel_v1_out.txt");
+    printf("parallel V1(omp version) output file name: %s\n", outputFileParallel);
     p = read_data_from_inputFile(InputFileName, &MAX_X_COORD, &MAX_Y_COORD, &NUMBER_OF_PERSONS);
     MXC = MAX_X_COORD;
     MYC = MAX_Y_COORD;
@@ -364,14 +458,31 @@ int main(int argc, char *argv[]){
     NP = NUMBER_OF_PERSONS;
     TST = TOTAL_SIMULATION_TIME;
     clock_gettime(CLOCK_MONOTONIC, &start); // measure wall clock time!
-    Simulation_Parallel(ThreadsNumber);
+    Simulation_Parallel_v1(ThreadsNumber);
 
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     elapsed_parallel = (finish.tv_sec - start.tv_sec);
     elapsed_parallel += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
-    printf("time prallel =%lf \n", elapsed_parallel);
+    printf("time prallel v1 =%lf \n", elapsed_parallel);
+
+    printf("Speedup = %lf\n", elapsed_serial / elapsed_parallel);
+
+    write_in_outputFile(outputFileParallel, NUMBER_OF_PERSONS, p);
+
+    outputFileParallel = createOutputFileName(InputFileName, "_parallel_v2_out.txt");
+    printf("parallel V2 output(manual explicit data partitioning) file name: %s\n", outputFileParallel);
+    p = read_data_from_inputFile(InputFileName, &MAX_X_COORD, &MAX_Y_COORD, &NUMBER_OF_PERSONS);
+    clock_gettime(CLOCK_MONOTONIC, &start); // measure wall clock time!
+    Simulation_Parallel_v2(ThreadsNumber);
+
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+
+    elapsed_parallel = (finish.tv_sec - start.tv_sec);
+    elapsed_parallel += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+
+    printf("time prallel v2 =%lf \n", elapsed_parallel);
 
     printf("Speedup = %lf\n", elapsed_serial / elapsed_parallel);
 
