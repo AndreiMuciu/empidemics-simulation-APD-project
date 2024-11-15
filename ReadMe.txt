@@ -1,134 +1,72 @@
-Here are some measurements:
-10k persons && 50 Time simulation: time serial - 5,15; time parallel - 1,64; speedup - 3,12
-10k persons && 100 Time simulation: time serial - 9,04; time parallel - 3,28; speedup - 2,75
-10k persons && 150 Time simulation: time serial - 13,32; time parallel - 4,74; speedup - 2,8
-10k persons && 200 Time simulation: time serial - 17,78; time parallel - 6,22; speedup - 2.85
-10k persons && 500 Time simulation: time serial - 43,52; time parallel - 15,4; speedup - 2,82
-20k persons && 50 Time simulation: time serial - 19,43; time parallel - 6,99; speedup - 2,77
-20k persons && 100 Time simulation: time serial - 41,17; time parallel - 13,41; speedup - 3,06
-20k persons && 150 Time simulation: time serial - 56,61; time parallel - 19,94; speedup - 2,83
-20k persons && 200 Time simulation: time serial - 76,96; time parallel - 26,08; speedup - 2,95
-20k persons && 500 Time simulation: time serial - 192,35; time parallel - 64,95; speedup - 2,96
-50k persons && 50 Time simulation: time serial - 102,19; time parallel - 34,66; speedup - 2,94
-50k persons && 100 Time simulation: time serial - 197,64; time parallel - 68,11; speedup - 2,9
-50k persons && 150 Time simulation: time serial - 289,75; time parallel - 98,37; speedup - 2,94
-50k persons && 200 Time simulation: time serial - 381,65; time parallel - 126,79; speedup - 3,01
-50k persons && 500 Time simulation: time serial - 962,5; time parallel - 330,75; speedup - 2,91
+This project simulates the development of an epidemic, providing insights into the effectiveness
+of parallelization strategies. The simulation includes one serial implementation and two 
+parallel implementations, based on different methodologies:
 
-I created the sequential logic in the first phase, and then based on that logic described in 
-the statement I transformed the sequentiality into parallel logic, based on the measurements 
-the speedup value obtained is generally between 2.8 and 3, so the improvement is a very good one 
-for the parallel part . the program is called in the command line as follows: 
-./executable_name TOTAL_SIMULATION_TIME INPUT_FILE_NAME NUMBER_OF_THREADS. the program checks 
-if the number of threads is divisible by the number of people taken from the input file, 
-also if the number of arguments in the command line is not correct, the program stops. 
-for the sequential part I had initially created several variables in the hand, 
-then to be able to adapt to the parallel I created other local variables with the values 
-​​of the ones in the hand to be able to do the parallel logic. the logic followed in the algorithm 
-is exactly the same in sequential and parallel. it can be seen that for small data there is no 
-point in paralyzing such as a number of 10 people, however, for a larger number, 
-the parallel version feels good and helps a lot.
+1.    Serial Implementation: A baseline, non-parallelized version of the epidemic simulation.
+2.    Parallel Implementation 1: Utilizes manual explicit data partitioning.
+3.    Parallel Implementation 2: Employs OpenMP for parallelization.
 
-This is the problem description:
+The program can be executed with the following command:
 
+./ExecutableName TOTAL_SIMULATION_TIME inputFileName ThreadsNumber
 
+-TOTAL_SIMULATION_TIME: Total time for the simulation to run.
+-inputFileName: Path to the input file containing simulation parameters.
+-ThreadsNumber: Number of threads for parallel executions.
 
-Large-scale epidemic simulations have a great importance for public health. However, large-scale simulations  of realistic epidemic models require immense computing power and they are realised as parallel cloud distributed solutions.
+Parallelization Approaches:
 
-In this assignment you implement and parallelize a highly simplified simulation model for the evolution of an infectious disease in a population.
+    1. Manual Explicit Data Partitioning:
+        -Involves manually dividing data among threads.
+        -Achieves a speedup of approximately 2.7 on average.
 
-A community of people inhabit a given area. Assume that the area is of a rectangular form and the position of each person is defined by his/her coordinates x,y.  The coordinates in this problem are discrete variables,  covering a  given fixed small area that is the area where contagion can occur. If 2 persons are in the contagion area, they are at the same coordinates.
+    2. OpenMP Parallelization:
+        -Leverages the abstraction provided by OpenMP to manage parallelism efficiently.
+        -Achieves a higher speedup of approximately 3.4 on average.
 
-Some persons are infected with a contagious disease. Do a simulation predicting how the community will be affected by the disease over a period of time. Use the following simplifying assumptions scenario:
+Speedup Analysis
 
-Persons move around. We simulate discrete time. At every time moment, persons can make only one move (change their coordinates once). Each person has a very simplified movement pattern described by:
+The higher speedup of the OpenMP-based implementation can be attributed to its:
 
-    Direction (N,S, E, W).  A person moves always in the same direction. If going in their moving direction the person arrives at the border of the rectangular simulation area,  the person starts “going back”  (reverses the movement direction, until the opposite border is reached).
-     Amplitude: how far away is one movement (the current coordinate is incremented/decremented by the value of the amplitude).  If the amplitude of one movement spans over intermediate positions where other people are located, these people are NOT considered contacts thus they are not in danger of being infected. Only the people staying for at least one simulation time moment at the same location (the destination of the movement) can get infected.
+    -Dynamic workload distribution: The dynamic scheduling approach adapts well to uneven 
+     workload distributions.
 
-A  Person can be: Infected (they have the disease), immune(they had the disease recently ), susceptible (they are not immune and not currently infected  – they get infected if they are in contact with an infected person). In this simplified model, you can consider that the duration of the sickness is a INFECTED_DURATION constant number of simulation time moments for every person (number of simulation time moments while a person stays infected).  After this time, the person recovers and gets immune for a  IMMUNE_DURATION constant number of time moments.
+    -Ease of abstraction: OpenMP's built-in mechanisms streamline parallelism, allowing 
+     finer control with less manual effort.
 
-Every person has a current status and a future status. The status of a person changes at every simulation time moment. The future status can be determined by the passing of time (healing and getting immunity or losing his  immunity) or can be changed as a function of the current status of other persons at the same location (getting infected).
+Scheduling and Load Balancing
 
-While (simulation time is not over)
+    -For finding an infected person, a dynamic schedule with a small ChunkSize of 10 is used:
+        *Adapts to varying task durations, ensuring threads can quickly fetch new chunks of work.
+    -For other logic, a static schedule with a ChunkSize of 60 is chosen:
+        *Ensures balanced thread utilization since most tasks involve similar workloads.
 
-     For all persons Update location
-
-     For all persons compute future status
-
-     Increment simulation time and make future status à  current
-
-                                            
-
-Requirements:
-
-Read initial data:
-
-Following parameters will be given as command line arguments:
-
-TOTAL_SIMULATION_TIME,  InputFileName, ThreadNumber
-
-Input files must contain:
-
-·       Size of simulation area:  MAX_X_COORD, MAX_Y_COORD
-
-·       Number N  of persons in the area.  For each person, on a new line:
-
-o   PersonID
-
-o   Initial coordinates x, y. they must be between 0..MAX_X_COORD, 0..MAX_Y_COORD
-
-o   Initial status: (infected=0, susceptible = 1) Initially we consider that there are no immune persons. For the initially infected persons, we consider that they got infected at the moment zero of the simulation.
-
-o   Movement pattern direction: (N=0, S=1, E=2, W=3)
-
-o   Movement pattern amplitude: an integer number, smaller than the area dimension on the movement direction
-
-PROVIDED INPUT FILES: see LINK HERE
-
-Algorithms implementation:
-
-Implement the algorithm that simulates the evolution of the epidemic both as a sequential and parallel version. The parallel version will take into account the number of threads specified as input argument.
-
-The parallel version will use pthreads.  Divide the persons across the processing threads.  Make sure to have the needed synchronization points between threads! Before going on to update infection status, all persons must have updated locations.  Before going on to simulate next time moment,  all persons must have updated infection status.
-
-Expected results:
-
-The output: For each person:
-
-     Final coordinates x, y
-      Final status (infected, immune, susceptible)
-     Infection counter: how many times during the simulation did the person become infected
-
-The final output will be saved in files. If input file was  f.txt, then output files are following the name convention f_serial_out.txt and f_parallel_out.txt
-
-Only the final result is saved – intermediate status at every simulation time moment is not saved in files.
-
-Implement an automatic verification method to compare that the serial and parallel versions produce the same result.  
-
-The program must provide 2 modes of running: the interactive (DEBUG) mode, when the evolution of the persons is printed after each generation, and the normal mode (without printing) for performance measurements.
-
-Measure serial and parallel runtime and compute the speedup. The measured runtime does NOT include reading initial configuration from file and writing the final configuration in a file.
-
-Repeat measurements for different sizes of the population, number of simulated time units, and different number of threads.
-
-Population sizes:  10K, 20K, 50K, 100K, 500K
-
-Simulation time: 50,  100, 150, 200, 500
-
- Provide a meaningful discussion of your experimental results.
-
-Grading 
-
-Implement serial version 5 points
-
-Implement parallel version 10 points
-
-A working program, reading input data in the required format  3 points
-
-Implement comparison between serial and parallel result 0.5 point
-
-Time Measurement, Speedup, Graphs, Discussion 1.5 point 
-
-Your submitted code must at least compile. Code with compilation errors gets zero points.
-
+Measurements:
+10k persons && 50 Time simulation: time serial - 4,43; time parallel_v1 - 1,34; speedup_v1 - 3,28
+time parallel_v2 - 1,63; speedup_v2 - 2,7
+10k persons && 100 Time simulation: time serial - 9,14; time parallel_v1 - 2,73; speedup_v1 - 3,33
+time parallel_v2 - 3,34; speedup_v2 - 2,73
+10k persons && 150 Time simulation: time serial - 13,1; time parallel_v1 - 3,91; speedup_v1 - 3,34
+time parallel_v2 - 5,99; speedup_v2 - 2,18
+10k persons && 200 Time simulation: time serial - 17,64; time parallel_v1 - 5,89; speedup_v1 - 2,99
+time parallel_v2 - 7,3; speedup_v2 - 2,41
+10k persons && 500 Time simulation: time serial - 4,43; time parallel_v1 - 12,58; speedup_v1 - 3,43
+time parallel_v2 - 43,2; speedup_v2 - 2,78
+20k persons && 50 Time simulation: time serial - 20,80; time parallel_v1 - 5,85; speedup_v1 - 3,55
+time parallel_v2 - 7,31; speedup_v2 - 2,84
+20k persons && 100 Time simulation: time serial - 39,00; time parallel_v1 - 11,1; speedup_v1 - 3,51
+time parallel_v2 - 14,1; speedup_v2 - 2,76
+20k persons && 150 Time simulation: time serial - 59,27; time parallel_v1 - 16,61; speedup_v1 - 3,56
+time parallel_v2 - 21,67; speedup_v2 - 2,73
+20k persons && 200 Time simulation: time serial - 77,54; time parallel_v1 - 21,89; speedup_v1 - 3,54
+time parallel_v2 - 27,95; speedup_v2 - 2,77
+20k persons && 500 Time simulation: time serial - 191,90; time parallel_v1 - 54,58; speedup_v1 - 3,51
+time parallel_v2 - 69,11; speedup_v2 - 2,77
+50k persons && 50 Time simulation: time serial - 101,24; time parallel_v1 - 28,13; speedup_v1 - 3,59
+time parallel_v2 - 34,73; speedup_v2 - 2,91
+50k persons && 100 Time simulation: time serial - 199,46; time parallel_v1 - 56,12; speedup_v1 - 3,55
+time parallel_v2 - 71,11; speedup_v2 - 2,80
+50k persons && 150 Time simulation: time serial - 294,94; time parallel_v1 - 87,18; speedup_v1 - 3,38
+time parallel_v2 - 105,87; speedup_v2 - 2,78
+50k persons && 200 Time simulation: time serial - 434,27; time parallel_v1 - 130,72; speedup_v1 - 3,32
+time parallel_v2 - 140,75; speedup_v2 - 3,08
