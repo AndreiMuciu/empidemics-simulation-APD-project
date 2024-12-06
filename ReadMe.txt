@@ -1,14 +1,19 @@
 This project simulates the development of an epidemic, providing insights into the effectiveness
-of parallelization strategies. The simulation includes one serial implementation and two 
-parallel implementations, based on different methodologies:
+of parallelization strategies. The simulation includes one serial implementation, two 
+parallel implementations, based on different methodologies on Threads, and anoterone based on MPI processes:
 
 1.    Serial Implementation: A baseline, non-parallelized version of the epidemic simulation.
 2.    Parallel Implementation 1: Utilizes manual explicit data partitioning.
 3.    Parallel Implementation 2: Employs OpenMP for parallelization.
+4.    Parallel implementation based on processes: A performance-optimized version using the MPI (Message Passing Interface).
 
 The program can be executed with the following command:
 
-./ExecutableName TOTAL_SIMULATION_TIME inputFileName ThreadsNumber
+./ExecutableName TOTAL_SIMULATION_TIME inputFileName ThreadsNumber (MODE == 0)
+
+for MODE == 1 (Parallel based on processes):
+compilation: mpicc -o program_name epidemics.c -fopenmp
+run: mpirun -np 4 ./program_name
 
 -TOTAL_SIMULATION_TIME: Total time for the simulation to run.
 -inputFileName: Path to the input file containing simulation parameters.
@@ -23,6 +28,9 @@ Parallelization Approaches:
     2. OpenMP Parallelization:
         -Leverages the abstraction provided by OpenMP to manage parallelism efficiently.
         -Achieves a higher speedup of approximately 3.4 on average.
+
+    3. MPI processes Paralelization:
+        -Achieves a higher speedup of approximately 1.5 on average.
 
 Speedup Analysis
 
@@ -41,7 +49,14 @@ Scheduling and Load Balancing
     -For other logic, a static schedule with a ChunkSize of 60 is chosen:
         *Ensures balanced thread utilization since most tasks involve similar workloads.
 
-Measurements:
+Prerequisites for MPI version
+
+    MPI Library: Ensure that MPI is installed on your system. For example:
+        OpenMPI
+        MPICH
+    C Compiler: A compiler that supports MPI, such as mpicc.
+
+Measurements(not processes implementation):
 10k persons && 50 Time simulation: time serial - 4,43; time parallel_v1 - 1,34; speedup_v1 - 3,28
 time parallel_v2 - 1,63; speedup_v2 - 2,7
 10k persons && 100 Time simulation: time serial - 9,14; time parallel_v1 - 2,73; speedup_v1 - 3,33
