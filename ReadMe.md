@@ -1,4 +1,4 @@
-#🦠 Epidemic Simulation — Parallelization Performance Analysis
+# 🦠 Epidemic Simulation — Parallelization Performance Analysis
 
 This project simulates the spread of an epidemic while analyzing the performance of different parallelization strategies. It includes:
 
